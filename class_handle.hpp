@@ -489,7 +489,7 @@ public:
       // get the number of dimensions
       mwSize ndims = mxGetNumberOfDimensions(wMxArray);
     
-      mwSize* dimspntr = mxGetDimensions(wMxArray);
+      const mwSize* dimspntr = mxGetDimensions(wMxArray);
     
       // get the dimensions and push them into the _dimensions vector
       for (int i = 0; i < ndims; i++)
@@ -497,9 +497,6 @@ public:
           mwSize dimsize = *(dimspntr+i);
           _dimensions.push_back(dimsize);
       }
-      
-      
-      
       
   }
   
