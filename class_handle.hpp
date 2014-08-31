@@ -107,6 +107,11 @@ template<class base> inline void destroyObject(const mxArray *in)
 }
 
 ///////////////////        HELPER MACROS        ///////////////////
+
+// This macro simply defines the standard mex input args, for convenience 
+// for use in wrapper class methods
+#define MEX_INPUT_ARGS int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
+
 //
 // The following macros allow easy creation of a map to the wrapped class
 // methods. You must first create a wrapper class for the c++ class to which you
@@ -115,8 +120,9 @@ template<class base> inline void destroyObject(const mxArray *in)
 //
 // void methodname (int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 //
-// When called, the method will be passed all the input arguments passed to the 
-// mexfunction.
+// You could use the previous macro to replace this with
+//
+// void methodname (MEX_INPUT_ARGS)
 //
 // Then in your mexfunction, use the macros: BEGIN_MEX_CLASS_WRAPPER, 
 // REGISTER_CLASS_METHOD and END_MEX_CLASS_WRAPPER to register the methods
@@ -134,6 +140,11 @@ template<class base> inline void destroyObject(const mxArray *in)
 // interfaceClassName_instance where interfaceClassName should be the name of 
 // the class which you previously will have passed into the 
 // BEGIN_MEX_CLASS_WRAPPER macro
+//
+// When called, your methods will be passed all the input arguments passed
+// to the mexfunction. The first two of these arguments will be a string
+// and integer containing the name of the method to be called and the 
+// object handle used to find the pointer to the object in memory.
 //
 //
 
@@ -197,7 +208,7 @@ template<class base> inline void destroyObject(const mxArray *in)
     {                                                                                                        \
         mexErrMsgTxt("Unrecognised class command string.");                                                  \
     }                                                                                                        \
-    
+
 
 ///////////////////        HELPER FUNCTIONS        ///////////////////
 
