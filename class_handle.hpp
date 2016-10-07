@@ -4,7 +4,7 @@
    A C++ mex class interface for Matlab/Octave
  
    Copyright (c) 2012, Oliver Woodford
-   Copyright (c) 2014, Richard Crozier
+   Copyright (c) 2014-2016, Richard Crozier
    All rights reserved.
 
 */
@@ -21,8 +21,10 @@
 #include <typeinfo>
 
 // define a signature to recognise the class at runtime, ideally
-// you should define this before #including this header in the mex function
-// file with  unique number for the class
+// you should DEFINE THIS WITH A DIFFERENT VALUE than the default before 
+// #including this header in the mex function file with  unique number 
+// for the class. This define is intended to uniquely identify the wrapped
+// class type so you don't mix up pointers to different class types
 #ifndef CLASS_HANDLE_SIGNATURE
 #define CLASS_HANDLE_SIGNATURE 0xFF00F0A5
 #endif
@@ -210,18 +212,65 @@ template<class base> inline void destroyObject(const mxArray *in)
     }                                                                                                        \
 
 
-///////////////////        HELPER FUNCTIONS        ///////////////////
+///////////////////        MEX UTILITIES        ///////////////////
+//
+// The following utility functions and classes are provided to assist with 
+// parsing the input arguments to the mexfunction methods and returning 
+// outputs.
 
-// mex helper functions
 namespace mexutils {
 
   
-void mxtestnumeric (const mxArray* testMxArray) {
+void mxtestnumeric (const mxArray* testMxArray, int argnum=0) {
  
    if (!mxIsNumeric(testMxArray))
    {
-     mexErrMsgIdAndTxt("CPP:mxtestnumeric",
-         "Input argument is not numeric.");
+       if (argnum > 0)
+       {
+           mexErrMsgIdAndTxt("CPP:mxtestnumeric",
+               "Input argument %i is not numeric.", argnum);
+       }
+       else
+       {
+           mexErrMsgIdAndTxt("CPP:mxtestnumeric",
+               "Input argument is not numeric.");
+       }
+   } 
+   
+}
+
+void mxtestchar (const mxArray* testMxArray, int argnum=0) {
+ 
+   if (!mxIsChar(testMxArray))
+   {
+       if (argnum > 0)
+       {
+           mexErrMsgIdAndTxt("CPP:mxtestchar",
+              "Input argument is not a string array.", argnum);
+       }
+       else
+       {
+           mexErrMsgIdAndTxt("CPP:mxtestchar",
+                "Input argument is not a string array.");
+       }
+   } 
+   
+}
+
+void mxtestlogical (const mxArray* testMxArray, int argnum=0) {
+ 
+   if (!mxIsLogical(testMxArray))
+   {
+       if (argnum > 0)
+       {
+           mexErrMsgIdAndTxt("CPP:mxtestnumeric",
+                "Input argument type is not logical.", argnum);
+       }
+       else
+       {
+           mexErrMsgIdAndTxt("CPP:mxtestnumeric",
+                "Input argument type is not logical.");
+       }
    } 
    
 }
@@ -270,7 +319,7 @@ void mxnaroutgchk (const int nlhs, int ntharg)
   return;
 }
 
-// Get the n'th scalar input argumetn to a mexfunction
+// Get the n'th scalar input argument to a mexfunction
 double mxnthargscalar (int nrhs, const mxArray *prhs[], int ntharg, int offset=0)
 {
   
@@ -283,7 +332,7 @@ double mxnthargscalar (int nrhs, const mxArray *prhs[], int ntharg, int offset=0
    }
    
    // check matrix is numeric
-   mxtestnumeric (prhs[ntharg-1]); 
+   mxtestnumeric (prhs[ntharg-1], ntharg); 
    
    if ((mxGetN(prhs[ntharg-1]) != 1) || (mxGetM(prhs[ntharg-1]) != 1))
    {
@@ -292,6 +341,85 @@ double mxnthargscalar (int nrhs, const mxArray *prhs[], int ntharg, int offset=0
    }
    
    return mxGetScalar(prhs[ntharg-1]);
+   
+}
+
+// Get the n'th scalar input argument to a mexfunction
+bool mxnthargscalarbool (int nrhs, const mxArray *prhs[], int ntharg, int offset=0)
+{
+  
+   ntharg = ntharg + offset;
+  
+   if (ntharg > nrhs)
+   {
+     mexErrMsgIdAndTxt("CPP:mxnthargscalar",
+         "Requested argument is greater than total number of arguments.");
+   }
+   
+   // check matrix is logical
+   mxtestlogical (prhs[ntharg-1], ntharg); 
+   
+   if ((mxGetN(prhs[ntharg-1]) != 1) || (mxGetM(prhs[ntharg-1]) != 1))
+   {
+     mexErrMsgIdAndTxt("CPP:mxnthargscalar",
+         "Input argument is not scalar.");
+   }
+   
+   return (bool)mxGetScalar(prhs[ntharg-1]);
+   
+}
+
+// Get the n'th input argument to a mexfunction whis is expected to be a 
+// char array
+char* mxnthargchar (int nrhs, const mxArray *prhs[], int ntharg, int offset=0)
+{
+  
+   ntharg = ntharg + offset;
+  
+   if (ntharg > nrhs)
+   {
+     mexErrMsgIdAndTxt("CPP:mxnthargstringarray",
+         "Requested argument is greater than total number of arguments.");
+   }
+   
+   // check it's a string
+   mxtestchar (prhs[ntharg-1], ntharg); 
+   
+//    if ((mxGetN(prhs[ntharg-1]) != 1) || (mxGetM(prhs[ntharg-1]) != 1))
+//    {
+//      mexErrMsgIdAndTxt("CPP:mxnthargstringarray",
+//          "Input argument is not a char array.");
+//    }
+  char *buf;
+  mwSize buflen; 
+  
+  /* Allocate enough memory to hold the converted string. */ 
+  buflen = mxGetNumberOfElements(prhs[ntharg-1]) + 1;
+  buf = (char*)mxCalloc(buflen, sizeof(char));
+  
+  /* Copy the string data from string_array_ptr and place it into buf. */ 
+  if (mxGetString(prhs[ntharg-1], buf, buflen) != 0)
+  {
+      mexErrMsgIdAndTxt( "CPP:mxnthargstringarray",
+            "Could not convert string data.");
+  }
+  
+  return buf;
+   
+}
+
+// Get the n'th input argument to a mexfunction whis is expected to be a 
+// char array and return as a std::string
+std::string mxnthargstring (int nrhs, const mxArray *prhs[], int ntharg, int offset=0)
+{
+  
+  char* buf = mxnthargchar (nrhs, prhs, ntharg, offset);
+  
+  std::string str (buf);
+  
+  mxFree (buf);
+  
+  return str;
    
 }
 
@@ -485,7 +613,7 @@ void mxSetLHS (const std::vector<double> out, int argn, const int nlhs, mxArray*
 }
 
 
-// wrapper class for mwArray, aminly to ease indexing
+// wrapper class for mwArray, mainly to ease indexing
 class mxNumericArrayWrapper
 {
 public:
@@ -511,6 +639,9 @@ public:
       
   }
   
+  // getDoubleValue
+  // gets vale from matrix using matrix subscripts. Note matrix subscripts 
+  // should be zero-based not one-based
   double getDoubleValue (std::vector<mwSize> index)
   {
       // check it's  double matrix
@@ -520,6 +651,43 @@ public:
               "Double value requested for non-double matrix.");          
       }
     
+      // get the linear index into the underlying data array
+      mwIndex linindex = calcSingleSubscript (index);
+      
+      // get the data from the array
+      double* data = mxGetPr(wMxArray);
+      
+      return data[(int)linindex];
+      
+  }
+  
+  // setDoubleValue
+  // sets value from matrix using matrix subscripts. Note matrix subscripts 
+  // should be zero-based not one-based
+  void setDoubleValue (std::vector<mwSize> index, double value)
+  {
+      // check it's  double matrix
+      if (!mxIsDouble (wMxArray))
+      {
+          mexErrMsgIdAndTxt("CPP:mxArrayWrapper:notdouble",
+              "Attempted to set double value in non-double matrix.");          
+      }
+
+      // get the linear index into the underlying data array
+      mwIndex linindex = calcSingleSubscript (index);
+      
+      // get the data from the array
+      double* data = mxGetPr(wMxArray);
+      
+      data[(int)linindex] = value;
+      
+  }
+  
+  // calcSingleSubscript
+  // gets linear index from matrix subscripts. Note matrix subscripts 
+  // should be zero-based not one-based
+  mwIndex calcSingleSubscript (std::vector<mwSize> index)
+  {
       // check dimensions are within range
       checkDimensions (index);
       
@@ -532,11 +700,7 @@ public:
       // delete the memory allocated for the index
       delete[] subs;
       
-      // get the data from the array
-      double* data = mxGetPr(wMxArray);
-      
-      return data[(int)linindex];
-      
+      return linindex;
   }
   
   void checkDimensions (const std::vector<mwSize> &index)
@@ -582,7 +746,21 @@ private:
   
 };
  
-
+// Get the n'th scalar input argument to a mexfunction
+mxNumericArrayWrapper mxnthargmatrix (int nrhs, const mxArray *prhs[], int ntharg, int offset=0)
+{
+  
+   ntharg = ntharg + offset;
+  
+   if (ntharg > nrhs)
+   {
+     mexErrMsgIdAndTxt("CPP:mxnthargmatrix",
+         "Requested argument is greater than total number of arguments.");
+   }
+   
+   return mxNumericArrayWrapper (prhs[ntharg-1]);
+   
+}
 
 } // namespace mexutils
 
